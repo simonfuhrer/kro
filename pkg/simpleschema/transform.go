@@ -16,6 +16,7 @@ package simpleschema
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -265,8 +266,8 @@ func (tf *transformer) applyMarkers(schema *extv1.JSONSchemaProps, markers []*Ma
 			}
 			schema.Maximum = &val
 		case MarkerTypeValidation:
-			if marker.Value == "" {
-				return fmt.Errorf("validation failed")
+			if strings.TrimSpace(marker.Value) == "" {
+				return fmt.Errorf("validation marker value cannot be empty")
 			}
 			validation := []extv1.ValidationRule{
 				{
@@ -302,6 +303,27 @@ func (tf *transformer) applyMarkers(schema *extv1.JSONSchemaProps, markers []*Ma
 			if len(enumJSONValues) > 0 {
 				schema.Enum = enumJSONValues
 			}
+		case MarkerTypeMinLength:
+			val, err := strconv.ParseInt(marker.Value, 10, 64)
+			if err != nil {
+				return fmt.Errorf("failed to parse minLength value: %w", err)
+			}
+			schema.MinLength = &val
+		case MarkerTypeMaxLength:
+			val, err := strconv.ParseInt(marker.Value, 10, 64)
+			if err != nil {
+				return fmt.Errorf("failed to parse maxLength value: %w", err)
+			}
+			schema.MaxLength = &val
+		case MarkerTypePattern:
+			if marker.Value == "" {
+				return fmt.Errorf("pattern marker value cannot be empty")
+			}
+			// Validate regex
+			if _, err := regexp.Compile(marker.Value); err != nil {
+				return fmt.Errorf("invalid pattern regex: %w", err)
+			}
+			schema.Pattern = marker.Value
 		}
 	}
 	return nil
