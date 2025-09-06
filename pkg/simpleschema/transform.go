@@ -324,6 +324,12 @@ func (tf *transformer) applyMarkers(schema *extv1.JSONSchemaProps, markers []*Ma
 				return fmt.Errorf("invalid pattern regex: %w", err)
 			}
 			schema.Pattern = marker.Value
+		case MarkerTypeUniqueItems:
+			isUnique, err := strconv.ParseBool(marker.Value)
+			if err != nil {
+				return fmt.Errorf("failed to parse uniqueItems value: %w", err)
+			}
+			schema.UniqueItems = isUnique
 		}
 	}
 	return nil
