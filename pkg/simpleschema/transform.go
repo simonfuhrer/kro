@@ -254,15 +254,23 @@ func (tf *transformer) applyMarkers(schema *extv1.JSONSchemaProps, markers []*Ma
 		case MarkerTypeDescription:
 			schema.Description = marker.Value
 		case MarkerTypeMinimum:
+			// Minimum is only valid for numeric types
+			if schema.Type != keyTypeInteger && schema.Type != keyTypeNumber {
+				return fmt.Errorf("minimum marker is only valid for numeric types, got type: %s", schema.Type)
+			}
 			val, err := strconv.ParseFloat(marker.Value, 64)
 			if err != nil {
-				return fmt.Errorf("failed to parse minimum enum value: %w", err)
+				return fmt.Errorf("failed to parse minimum value: %w", err)
 			}
 			schema.Minimum = &val
 		case MarkerTypeMaximum:
+			// Maximum is only valid for numeric types
+			if schema.Type != keyTypeInteger && schema.Type != keyTypeNumber {
+				return fmt.Errorf("maximum marker is only valid for numeric types, got type: %s", schema.Type)
+			}
 			val, err := strconv.ParseFloat(marker.Value, 64)
 			if err != nil {
-				return fmt.Errorf("failed to parse maximum enum value: %w", err)
+				return fmt.Errorf("failed to parse maximum value: %w", err)
 			}
 			schema.Maximum = &val
 		case MarkerTypeValidation:
@@ -304,12 +312,20 @@ func (tf *transformer) applyMarkers(schema *extv1.JSONSchemaProps, markers []*Ma
 				schema.Enum = enumJSONValues
 			}
 		case MarkerTypeMinLength:
+			// MinLength is only valid for string types
+			if schema.Type != keyTypeString {
+				return fmt.Errorf("minLength marker is only valid for string types, got type: %s", schema.Type)
+			}
 			val, err := strconv.ParseInt(marker.Value, 10, 64)
 			if err != nil {
 				return fmt.Errorf("failed to parse minLength value: %w", err)
 			}
 			schema.MinLength = &val
 		case MarkerTypeMaxLength:
+			// MaxLength is only valid for string types
+			if schema.Type != keyTypeString {
+				return fmt.Errorf("maxLength marker is only valid for string types, got type: %s", schema.Type)
+			}
 			val, err := strconv.ParseInt(marker.Value, 10, 64)
 			if err != nil {
 				return fmt.Errorf("failed to parse maxLength value: %w", err)
@@ -319,17 +335,30 @@ func (tf *transformer) applyMarkers(schema *extv1.JSONSchemaProps, markers []*Ma
 			if marker.Value == "" {
 				return fmt.Errorf("pattern marker value cannot be empty")
 			}
+			// Pattern is only valid for string types
+			if schema.Type != keyTypeString {
+				return fmt.Errorf("pattern marker is only valid for string types, got type: %s", schema.Type)
+			}
 			// Validate regex
 			if _, err := regexp.Compile(marker.Value); err != nil {
 				return fmt.Errorf("invalid pattern regex: %w", err)
 			}
 			schema.Pattern = marker.Value
 		case MarkerTypeUniqueItems:
-			isUnique, err := strconv.ParseBool(marker.Value)
-			if err != nil {
-				return fmt.Errorf("failed to parse uniqueItems value: %w", err)
+			// UniqueItems is only valid for array types
+			switch isUnique, err := strconv.ParseBool(marker.Value); {
+			case err != nil:
+				return fmt.Errorf("failed to parse uniqueItems marker value: %w", err)
+			case parentSchema == nil:
+				return fmt.Errorf("uniqueItems marker can't be applied; parent schema is nil")
+			case schema.Type != "array":
+				return fmt.Errorf("uniqueItems marker is only valid for array types, got type: %s", schema.Type)
+			case isUnique:
+				parentSchema.UniqueItems = isUnique
+			default:
+				// ignore
 			}
-			schema.UniqueItems = isUnique
+
 		}
 	}
 	return nil
